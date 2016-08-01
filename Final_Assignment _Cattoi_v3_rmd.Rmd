@@ -1,0 +1,109 @@
+---
+title: "Final_Assignment _Cattoi_v3"
+author: "Carlos Cattoi"
+date: "31 de julho de 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load Needed libraries
+```{needed libraries}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rattle)
+```
+
+Setting seed
+```{r set seed to 123}
+set.seed(123)
+```
+
+Loading data into R
+```{r load data}
+trainingData <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+testingData <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+str(trainingData)
+```
+
+Clean trainingData, removing unecessary Columns
+```{r Cleaning 1}
+UnecessaryColumns <- c('X','user_name','raw_timestamp_part_1','raw_timestamp_part_2','cvtd_timestamp','new_window', "num_window")
+trainingData <- trainingData[,!(names(trainingData) %in% UnecessaryColumns)]
+dim(trainingData)
+```
+
+Define the columns that has NZV and take off from original Train Data
+```{nearZeroVar}
+nzvColumns <- nearZeroVar(trainingData)
+trainingData <- trainingData[,-nzvColumns]
+dim(trainingData)
+
+```
+
+Take  off columns with too  many NAs (50%)
+```{r Cleaning NA}
+trainingData <- trainingData[,colSums(is.na(trainingData))<nrow(trainingData)*0.5]
+dim(trainingData)
+
+```
+
+The training set must be divided into 2 new sets (70% Train  ;  30% Test)
+```{createDataPartition}
+inTrain <- createDataPartition(y=trainingData$classe, p=0.7, list=FALSE)
+myTrain <- trainingData[inTrain, ]
+myTest <- trainingData[-inTrain, ]
+dim(myTrain)
+dim(myTest)
+
+```
+
+
+Predictong using Decision Tree
+```{Predicting using Decision Tree}
+#Fit a model and plot a decicion Tree using 'rpart'
+modelFitDT <- rpart(classe ~ ., data=myTrain, method="class")
+fancyRpartPlot(modelFitDT)
+
+#Predict Using ModelFit1
+predictionDT <- predict(modelFitDT, myTest, type = "class")
+
+#Check confusion matrix results for predictionDT
+confusionMatrix(predictionDT, myTest$classe)
+
+```
+
+Predict using Random forests
+```{Predict using Random forests}
+#Fit a model by Random Forests
+modelFitRF <- randomForest(classe ~. , data=myTrain)
+
+#Predicting a model  by random  forest
+predictionRF <- predict(modelFitRF, myTest, type = "class")
+
+#Check confusion matrix results for prediction1
+confusionMatrix(predictionRF, myTest$classe)
+
+```
+
+Since RandomForest Accuracy is 99,4%; we'll use modelFitRF to predict our trainingData
+```{Applying on Testing Data}
+testingData<-testingData[,intersect(names(trainingData),names(testingData))] 
+prediction_Testing <- predict(modelFitRF, testingData)
+```
+
+final prediction files area created
+```{creating the final prediction files}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(prediction_Testing)
+```
